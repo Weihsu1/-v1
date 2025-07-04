@@ -14,17 +14,7 @@ scripts/
 └── VectorBT_Guide.md                    # VectorBT 使用指南 - 詳細教學文件
 ```
 
-### 📚 學習材料 (Learning Materials)
-```
-material/
-├── 00_introduction.md                   # 量化交易介紹
-├── 01_what_is_quant_trading.md          # 什麼是量化交易
-├── 02_toolbox.md                        # 量化交易工具箱
-├── 03_data_preparation.md               # 數據準備
-├── 04_strategy_development.md           # 策略開發
-├── 05_performance_measurement.md        # 績效衡量
-└── 06_next_steps.md                     # 下一步學習
-```
+
 
 ### 🔧 交易策略版本1 (Trading Strategy Version 1)
 ```
