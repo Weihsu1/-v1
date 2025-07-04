@@ -26,9 +26,9 @@ material/
 └── 06_next_steps.md                     # 下一步學習
 ```
 
-### 🔧 實習專案 (Internship Projects)
+### 🔧 交易策略版本1 (Trading Strategy Version 1)
 ```
-intern_files/
+trading_strategy_version1/
 ├── intern/                              # 實習任務檔案
 │   ├── 1.py - 7.py                     # 基礎 Python 練習
 │   ├── cost_model.py                    # 成本模型計算
@@ -72,13 +72,13 @@ intern_files/
 - 大規模策略測試
 - 專業級回測工具
 
-### 4. **SMC 策略系統** (`intern_files/smc/`)
+### 4. **SMC 策略系統** (`trading_strategy_version1/smc/`)
 - Smart Money Concepts 實現
 - 多時間框架分析
 - 機構資金流向追蹤
 - 高級技術分析
 
-### 5. **SNR 指標系統** (`intern_files/snr test/`)
+### 5. **SNR 指標系統** (`trading_strategy_version1/snr test/`)
 - Signal-to-Noise Ratio 計算
 - 市場噪音過濾
 - 信號品質評估
@@ -118,11 +118,11 @@ jupyter notebook
 python vbt_strategy_demo.py
 
 # 運行 SMC 策略
-cd intern_files/smc/
+cd trading_strategy_version1/smc/
 python multi_tf_smc.py
 
 # 執行 SNR 測試
-cd intern_files/snr\ test/
+cd trading_strategy_version1/snr\ test/
 python malaysian_snr_strategy.py
 ```
 
