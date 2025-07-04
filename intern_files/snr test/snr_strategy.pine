@@ -1,0 +1,142 @@
+//@version=5
+strategy("SNR Strategy", overlay=true, margin_long=100, margin_short=100, default_qty_type=strategy.percent_of_equity, default_qty_value=10)
+
+// =====================
+// 參數設定
+// =====================
+snr_period = input.int(14, "SNR期間", minval=5, maxval=50)
+snr_threshold = input.float(0.1, "SNR閾值", minval=0.01, maxval=1.0, step=0.01)
+stop_loss_pct = input.float(1.0, "止損百分比(%)", minval=0.1, maxval=5.0, step=0.1)
+take_profit_pct = input.float(2.0, "止盈百分比(%)", minval=0.1, maxval=10.0, step=0.1)
+max_hold_bars = input.int(20, "最大持有K棒數", minval=5, maxval=100)
+use_rsi_filter = input.bool(true, "使用RSI過濾")
+rsi_period = input.int(14, "RSI期間", minval=5, maxval=30)
+rsi_oversold = input.int(30, "RSI超賣", minval=10, maxval=50)
+rsi_overbought = input.int(70, "RSI超買", minval=50, maxval=90)
+
+// =====================
+// SNR計算
+// =====================
+// 計算信號（價格變化）
+signal_sum = 0.0
+for i = 0 to snr_period - 1
+    if i < bar_index
+        signal_sum := signal_sum + (close[i] - close[i + 1])
+
+// 計算噪音（絕對價格變化）
+noise_sum = 0.0
+for i = 0 to snr_period - 1
+    if i < bar_index
+        noise_sum := noise_sum + math.abs(close[i] - close[i + 1])
+
+// 計算SNR
+snr_value = noise_sum != 0 ? signal_sum / noise_sum : 0
+
+// =====================
+// 額外過濾指標
+// =====================
+// RSI
+rsi = ta.rsi(close, rsi_period)
+
+// 移動平均線
+ma_fast = ta.sma(close, 10)
+ma_slow = ta.sma(close, 20)
+ma_trend = ma_fast > ma_slow
+
+// =====================
+// 進場條件
+// =====================
+// 多單進場條件
+long_snr_condition = snr_value > snr_threshold
+long_rsi_condition = use_rsi_filter ? rsi < rsi_overbought : true
+long_ma_condition = ma_trend
+
+long_entry = long_snr_condition and long_rsi_condition and long_ma_condition
+
+// 空單進場條件
+short_snr_condition = snr_value < -snr_threshold
+short_rsi_condition = use_rsi_filter ? rsi > rsi_oversold : true
+short_ma_condition = not ma_trend
+
+short_entry = short_snr_condition and short_rsi_condition and short_ma_condition
+
+// =====================
+// 出場條件
+// =====================
+// SNR反轉出場
+long_snr_exit = snr_value < 0
+short_snr_exit = snr_value > 0
+
+// 時間出場
+var int entry_bar = na
+if strategy.position_size != 0 and na(entry_bar)
+    entry_bar := bar_index
+
+time_exit = not na(entry_bar) and (bar_index - entry_bar) >= max_hold_bars
+
+// =====================
+// 策略執行
+// =====================
+// 多單進場
+if long_entry and strategy.position_size == 0
+    strategy.entry("Long", strategy.long)
+    strategy.exit("Long Exit", "Long", 
+                 stop=close * (1 - stop_loss_pct / 100), 
+                 limit=close * (1 + take_profit_pct / 100))
+
+// 空單進場
+if short_entry and strategy.position_size == 0
+    strategy.entry("Short", strategy.short)
+    strategy.exit("Short Exit", "Short", 
+                 stop=close * (1 + stop_loss_pct / 100), 
+                 limit=close * (1 - take_profit_pct / 100))
+
+// SNR反轉出場
+if long_snr_exit and strategy.position_size > 0
+    strategy.close("Long", comment="SNR反轉")
+    entry_bar := na
+
+if short_snr_exit and strategy.position_size < 0
+    strategy.close("Short", comment="SNR反轉")
+    entry_bar := na
+
+// 時間出場
+if time_exit
+    strategy.close_all("時間出場")
+    entry_bar := na
+
+// =====================
+// 繪製指標
+// =====================
+// 移動平均線
+plot(ma_fast, "快速MA", color=color.blue, linewidth=1)
+plot(ma_slow, "慢速MA", color=color.red, linewidth=1)
+
+// 進場點標記
+plotshape(long_entry, "多單進場", shape.triangleup, location.belowbar, color.green, size=size.small)
+plotshape(short_entry, "空單進場", shape.triangledown, location.abovebar, color.red, size=size.small)
+
+// 出場點標記
+plotshape(long_snr_exit and strategy.position_size > 0, "多單出場", shape.circle, location.abovebar, color.orange, size=size.tiny)
+plotshape(short_snr_exit and strategy.position_size < 0, "空單出場", shape.circle, location.belowbar, color.orange, size=size.tiny)
+
+// =====================
+// 顯示資訊
+// =====================
+var table info_table = table.new(position.top_right, 2, 6, bgcolor=color.white, border_width=1)
+if barstate.islast
+    table.cell(info_table, 0, 0, "SNR值", text_color=color.black)
+    table.cell(info_table, 1, 0, str.tostring(snr_value, "#.####"), text_color=color.black)
+    table.cell(info_table, 0, 1, "RSI", text_color=color.black)
+    table.cell(info_table, 1, 1, str.tostring(rsi, "#.##"), text_color=color.black)
+    table.cell(info_table, 0, 2, "MA趨勢", text_color=color.black)
+    ma_trend_text = ma_trend ? "上升" : "下降"
+    table.cell(info_table, 1, 2, ma_trend_text, text_color=color.black)
+    table.cell(info_table, 0, 3, "持倉", text_color=color.black)
+    position_text = strategy.position_size > 0 ? "多單" : strategy.position_size < 0 ? "空單" : "無"
+    table.cell(info_table, 1, 3, position_text, text_color=color.black)
+    table.cell(info_table, 0, 4, "淨利", text_color=color.black)
+    table.cell(info_table, 1, 4, str.tostring(strategy.netprofit, "#.##"), text_color=color.black)
+    table.cell(info_table, 0, 5, "勝率", text_color=color.black)
+    win_rate = strategy.wintrades / (strategy.wintrades + strategy.losstrades) * 100
+    table.cell(info_table, 1, 5, str.tostring(win_rate, "#.##") + "%", text_color=color.black) 

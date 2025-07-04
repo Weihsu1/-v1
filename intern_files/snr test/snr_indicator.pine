@@ -1,0 +1,60 @@
+//@version=5
+indicator("SNR Indicator", overlay=false)
+
+// =====================
+// 參數設定
+// =====================
+snr_period = input.int(14, "SNR期間", minval=5, maxval=50)
+price_change_threshold = input.float(0.1, "價格變化閾值", minval=0.01, maxval=1.0, step=0.01)
+
+// =====================
+// SNR計算
+// =====================
+// 計算價格變化
+price_change = close - close[1]
+
+// 計算絕對價格變化
+abs_price_change = math.abs(price_change)
+
+// 使用ta.cum()來計算累積和（替代ta.sum）
+// 計算信號（價格變化）
+signal_sum = 0.0
+for i = 0 to snr_period - 1
+    if i < bar_index
+        signal_sum := signal_sum + (close[i] - close[i + 1])
+
+// 計算噪音（絕對價格變化）
+noise_sum = 0.0
+for i = 0 to snr_period - 1
+    if i < bar_index
+        noise_sum := noise_sum + math.abs(close[i] - close[i + 1])
+
+// 計算SNR
+snr_value = noise_sum != 0 ? signal_sum / noise_sum : 0
+
+// =====================
+// 繪製指標
+// =====================
+// 繪製SNR線
+plot(snr_value, "SNR", color=color.blue, linewidth=2)
+
+// 繪製零線
+hline(0, "零線", color=color.gray, linestyle=hline.style_dashed)
+
+// 繪製閾值線
+hline(price_change_threshold, "上閾值", color=color.red, linestyle=hline.style_dotted)
+hline(-price_change_threshold, "下閾值", color=color.red, linestyle=hline.style_dotted)
+
+// =====================
+// 顯示資訊
+// =====================
+var table info_table = table.new(position.top_right, 2, 3, bgcolor=color.white, border_width=1)
+if barstate.islast
+    table.cell(info_table, 0, 0, "SNR值", text_color=color.black)
+    table.cell(info_table, 1, 0, str.tostring(snr_value, "#.####"), text_color=color.black)
+    table.cell(info_table, 0, 1, "信號強度", text_color=color.black)
+    signal_strength = math.abs(snr_value) > price_change_threshold ? "強" : "弱"
+    table.cell(info_table, 1, 1, signal_strength, text_color=color.black)
+    table.cell(info_table, 0, 2, "趨勢", text_color=color.black)
+    trend = snr_value > 0 ? "上升" : snr_value < 0 ? "下降" : "中性"
+    table.cell(info_table, 1, 2, trend, text_color=color.black) 

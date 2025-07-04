@@ -1,0 +1,93 @@
+//@version=5
+strategy("7-2 策略 (多空雙向, 三選二進場, 停損, BB+RSI+OBV)", overlay=true, initial_capital=1000000, default_qty_type=strategy.percent_of_equity, default_qty_value=100, commission_type=strategy.commission.cash_per_contract, commission_value=1.5)
+
+// === 參數設定 ===
+bb_length = input.int(20, "布林通道週期")
+bb_mult = input.float(2.0, "布林通道倍數")
+rsi_length = input.int(14, "RSI週期")
+rsi_oversold = input.int(35, "RSI超賣進場")
+rsi_exit = input.int(50, "RSI多單出場")
+rsi_overbought = input.int(65, "RSI超買進場(空單)")
+rsi_exit_short = input.int(50, "RSI空單出場")
+obv_ma_length = input.int(15, "OBV均線週期")
+entry_n = input.int(2, "進場條件至少滿足幾個", minval=1, maxval=3)
+stop_loss_pct = input.float(1.0, "停損百分比(資金%)", minval=0.1, step=0.1)
+
+// === 指標計算 ===
+// 布林通道
+bb_mid = ta.sma(close, bb_length)
+bb_std = ta.stdev(close, bb_length)
+bb_upper = bb_mid + bb_mult * bb_std
+bb_lower = bb_mid - bb_mult * bb_std
+
+// RSI
+rsi = ta.rsi(close, rsi_length)
+
+// OBV
+obv = ta.cum(ta.change(close) > 0 ? volume : ta.change(close) < 0 ? -volume : 0)
+obv_ma = ta.sma(obv, obv_ma_length)
+
+// === 多單進場條件 ===
+cond_bb_long = close < bb_lower
+cond_rsi_long = rsi < rsi_oversold
+cond_obv_long = obv > obv_ma
+cond_count_long = (cond_bb_long ? 1 : 0) + (cond_rsi_long ? 1 : 0) + (cond_obv_long ? 1 : 0)
+entry_long = cond_count_long >= entry_n
+
+// === 空單進場條件 ===
+cond_bb_short = close > bb_upper
+cond_rsi_short = rsi > rsi_overbought
+cond_obv_short = obv < obv_ma
+cond_count_short = (cond_bb_short ? 1 : 0) + (cond_rsi_short ? 1 : 0) + (cond_obv_short ? 1 : 0)
+entry_short = cond_count_short >= entry_n
+
+// === 多單出場條件 ===
+exit_long = close > bb_mid and rsi > rsi_exit
+// === 空單出場條件 ===
+exit_short = close < bb_mid and rsi < rsi_exit_short
+
+// === 停損計算 ===
+var float entry_price_long = na
+var float stop_loss_price_long = na
+var float entry_price_short = na
+var float stop_loss_price_short = na
+
+// 多單進場
+if entry_long and strategy.position_size == 0
+    entry_price_long := close
+    stop_loss_price_long := entry_price_long * (1 - stop_loss_pct / 100)
+    strategy.entry("Long", strategy.long)
+// 空單進場
+if entry_short and strategy.position_size == 0
+    entry_price_short := close
+    stop_loss_price_short := entry_price_short * (1 + stop_loss_pct / 100)
+    strategy.entry("Short", strategy.short)
+
+// 多單出場或停損
+if strategy.position_size > 0
+    if close <= stop_loss_price_long
+        strategy.close("Long", comment="Stop Loss")
+    if exit_long
+        strategy.close("Long", comment="Exit Signal")
+// 空單出場或停損
+if strategy.position_size < 0
+    if close >= stop_loss_price_short
+        strategy.close("Short", comment="Stop Loss")
+    if exit_short
+        strategy.close("Short", comment="Exit Signal")
+
+// === 畫圖輔助 ===
+plot(bb_upper, color=color.red, linewidth=1, title="BB上軌")
+plot(bb_mid, color=color.blue, linewidth=1, title="BB中軌")
+plot(bb_lower, color=color.green, linewidth=1, title="BB下軌")
+plotshape(entry_long, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.tiny, title="多單進場點")
+plotshape(exit_long, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.tiny, title="多單出場點")
+plotshape(entry_short, style=shape.triangledown, location=location.abovebar, color=color.orange, size=size.tiny, title="空單進場點")
+plotshape(exit_short, style=shape.triangleup, location=location.belowbar, color=color.purple, size=size.tiny, title="空單出場點")
+
+// === 註解 ===
+// 多單進場：三個條件滿足其二（BB下軌、RSI<35、OBV>OBV_MA）
+// 多單出場：BB中軌且RSI>50 或停損
+// 空單進場：三個條件滿足其二（BB上軌、RSI>65、OBV<OBV_MA）
+// 空單出場：BB中軌且RSI<50 或停損
+// 停損：每筆虧損不超過資金1%（可調） 
