@@ -140,8 +140,8 @@ Desktop.ini
 ~$*.xlsx
 ~$*.xls
 
-# Large data files (optional - uncomment if you don't want to track large data files)
-# *.txt
+# Large data files (excluded due to GitHub file size limits)
+*.txt
 # *.csv
 # *.xlsx
 # *.xls
